@@ -591,15 +591,17 @@ def writeFile(dicts, list_pos, threshold, lists_acca, list_pos_star, filename):
     '''
     保存FilterDev得到的dicts，list_pos,threshold到json文件。
     '''
-    path = _path(filename)
+    fname = _path(filename)
     jsonstr = json.dumps({'dicts': Dicts2Dj(dicts),
                           'list_pos': list_pos,
                           'threshold': threshold,
                           'lists_acca': lists_acca,
                           'list_pos_star': list_pos_star,})
-    with open(path, 'w') as f:
+    if not os.path.exists(os.path.split(fname)[0]):
+        os.path.makedirs(os.path.split(fname)[0])
+    with open(fname, 'w') as f:
         f.write(jsonstr)
-    return path
+    return fname
 
 def readFile(path, bl_pathAbsolute = False):
     '''

@@ -50,7 +50,7 @@ class Filter:
             self.refiner.refine(sentences)
 
     @classmethod
-    def SettingFile(cls, path):
+    def readFromFile(cls, path):
         return cls(*readFile(path))
     
 

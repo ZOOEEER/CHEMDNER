@@ -15,8 +15,8 @@ from collections import defaultdict
 import random
 
 class TrainingData():
-    def __init__(self):
-        self.DirPath = 'D:\Desktop\Python\CHEMDNER\data'
+    def __init__(self, DirPath = ''):
+        self.DirPath = os.path.join('D:\Desktop\Python\CHEMDNER\data', DirPath)
         self.fn_wildcard = '\\*.txt'
         
         self.categories = None
@@ -55,6 +55,8 @@ class TrainingData():
         '''
         保存TrainingData到文件。
         '''
+        if not os.path.exists(self.DirPath):
+            os.path.makedirs(self.DirPath)
         for type_cem in self.categories.keys():
             with open(os.path.join(self.DirPath, '{}.txt'.format(type_cem)), 'w', encoding='utf-8') as f:
                 f.write('\n'.join(self.categories[type_cem]))

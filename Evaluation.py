@@ -13,8 +13,12 @@ from FilterDev import EntityInD
 __all__ = [
     "evaluation_sen",
     "evaluation_sens",
+    "evaluationChar_sen",
+    "evaluationChar_sens",
     "causeFN",
-    "stat_enum"
+    "stat_enum",
+    "causeFP",
+    "stat_pureFP",
 ]
 
 '====evaluation===='
@@ -48,6 +52,34 @@ def evaluation_sens(sens_target, sens_pred, bl_stat = True):
             confusion[key].extend(sen_conf[key])
     if bl_stat:
         evaluation_stat(confusion)
+    return confusion
+
+def evaluationChar_sen(sen_target, sen_pred):
+    targetChar = [0] * len(sen_target.text)
+    predChar = [0] * len(sen_pred.text)
+    for entity in sen_target.entities:
+        for i in range(entity.start, entity.end):
+            targetChar[i] += 1
+    for entity in sen_pred.entities:
+        for i in range(entity.start, entity.end):
+            predChar[i] += 1
+    target_length = sum(targetChar)
+    pred_length = sum([1 for i in predChar if i == 1])
+    coverage_length = sum(1 for i,j in zip(targetChar, predChar) if i and j)
+    norepeat_length = sum(predChar)
+    return (target_length, pred_length, coverage_length, norepeat_length)
+
+def evaluationChar_sens(sens_target, sens_pred, bl_stat = True):
+    confusion = []
+    for sen_target, sen_pred in zip(sens_target, sens_pred):
+        confusion.append(evaluationChar_sen(sen_target, sen_pred))
+    if bl_stat:
+        tp_ratio = sum([c[2] for c in confusion]) / sum([c[0] for c in confusion]) # micro average
+        fp_ratio = sum([c[2] for c in confusion]) / sum([c[1] for c in confusion]) # micro average
+        fp2_ratio = sum([c[2] for c in confusion]) / sum([c[3] for c in confusion]) # micro average
+        print('tp_ratio:{:.1%} = {}/{}'.format(tp_ratio, sum([c[2] for c in confusion]), sum([c[0] for c in confusion])))
+        print('fp_ratio:{:.1%} = {}/{}'.format(fp_ratio, sum([c[2] for c in confusion]), sum([c[1] for c in confusion])))
+        print('fp2_ratio:{:.1%} = {}/{}'.format(fp2_ratio, sum([c[2] for c in confusion]), sum([c[3] for c in confusion])))        
     return confusion
 
 '=====分析====='
@@ -137,3 +169,66 @@ def stat_enum(entitiesFN, myfilter, num_samples = 20, key = 'Ac'):
                       myfilter.dictLookuper.dict[EntityInD(entity.mention, entityfn.pos)])
         if key in ['len4', 'len27']:
             print('len:{}'.format(entity.end - entity.start))
+
+entityFP = namedtuple('entityFP', ['Entity', 'SenTarget', 'SenPred', 
+                                   'out', 
+                                   'tptp', 'tppt', 'btp', 'bpt', 
+                                   'ptpt', 'pttp', 'ptb', 'tpb'])
+def causeFP(confusion, bl_pure = True):
+    count_truth = len(confusion['tp']) + len(confusion['fp'])
+    entitiesFP = []
+    for item in confusion['fp']:
+        entity = item[0]
+        sen_target = item[1]
+        sen_pred = item[2]
+        tptp, tppt, btp, bpt, ptpt, pttp, ptb, tpb = [False] * 8
+        for entity_target in sen_target.entities:
+            if entity_target.start < entity.start and entity.start < entity_target.end and entity_target.end < entity.end:
+                tptp = True
+            if entity.start < entity_target.start and entity_target.start < entity.end and entity.end < entity_target.end:
+                ptpt = True
+            if entity.start == entity_target.start and entity_target.end < entity.end:
+                btp = True
+            if entity.start == entity_target.start and entity.end < entity_target.end:
+                bpt = True
+            if entity_target.start < entity.start and entity.end < entity_target.end:
+                tppt = True
+            if entity.start < entity_target.start and entity_target.end < entity.end:
+                pttp = True
+            if entity.start < entity_target.start and entity_target.end == entity.end:
+                ptb = True
+            if entity_target.start < entity.start and entity.end == entity_target.end:
+                tpb = True
+        out = not any([tptp, tppt, btp, bpt, ptpt, pttp, ptb, tpb])
+        entitiesFP.append(entityFP(entity, sen_target, sen_pred, out, tptp, tppt, btp, bpt, ptpt, pttp, ptb, tpb))
+    records = []
+    for i in range(3,len(entitiesFP[0])):
+        records.append((entityFP._fields[i], sum([item[i] for item in entitiesFP]), sum([item[i] for item in entitiesFP])/count_truth))
+    for record in records:    
+        print('{:>10} {:4} {:.1%}'.format(*record))
+    if bl_pure:
+        print('Stat of Pure Causes for FN:')
+        stat_pureFP(entitiesFP)
+    return entitiesFP
+
+def stat_pureFP(entitiesFP):
+    msg ='{:>10} {:4}'
+    total = 0
+    for key in entityFP._fields[3:]:
+        sum_key = sum([ entityfp._asdict()[key] for entityfp in entitiesFP if sum(entityfp[3:]) == 1])
+        print(msg.format(key,sum_key))
+        total += sum_key
+    print(msg.format('Total', total))
+
+
+
+
+
+
+
+
+
+
+
+
+

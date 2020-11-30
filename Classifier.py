@@ -11,6 +11,7 @@ import time
 import math
 import os
 
+from Model import loadModel, saveModel
 from Model import RNN2
 from TrainingData import TrainingData
 
@@ -25,10 +26,10 @@ def timeSince(since):
     return '%dm %ds' % (m, s)
 
 class ClassifierDev:
-    def __init__(self, name = 'defaultName', model = None):
+    def __init__(self, name = 'defaultName', model = None, model_name = '', data_dirPath = ''):
         self.name = name
         # data
-        self.trainingdata = TrainingData()
+        self.trainingdata = TrainingData(data_dirPath)
         self.trainingdata.loadTrainingData()
         self.trainingdata.loadDataLoaders()
 
@@ -47,9 +48,11 @@ class ClassifierDev:
         n_letters = self.trainingdata.vectorizer.n_letters # 72
         n_hidden = 128
         n_categories = self.trainingdata.n_categories # 2
-        if not model:
+        if not model and not model_name:
             self.setModel(RNN2(n_letters, n_hidden, n_categories))
-        else:
+        elif model_name != '':
+            self.setModelbyName(model_name)
+        elif model:
             self.setModel(model)
             
         # training process evaluation
@@ -71,6 +74,14 @@ class ClassifierDev:
         self.all_corrects = {}
         self.all_corrects['train'] = []
         self.all_corrects['valid'] = [] 
+    
+    def setModelbyName(self, modelname):
+        self.setModel(loadModel(modelname))
+    
+    def setData(self, DirPath):
+        self.trainingdata = TrainingData(DirPath)
+        self.trainingdata.loadTrainingData()
+        self.trainingdata.loadDataLoaders()
     
     def _train(self, x_tensor, y, hidden):
         self.optimizer.zero_grad()
@@ -176,16 +187,21 @@ class ClassifierDev:
         plt.plot(self.all_corrects['valid'])
         if not self.name == 'defaultName':
             plt.savefig(os.path.join(IMGPATH, self.name + '-accuracy.png'))
-
+    
 
 from TrainingData import NormalizerLetter, VectorizerOH
 class Classifier:
-    def __init__(self, category_names, model, normalizer = None, vectorizer = None):
+    def __init__(self, category_names, model = None, normalizer = None, vectorizer = None, model_name = ''):
         
         self.category_names = category_names
         self.normalizer = NormalizerLetter()
         self.vectorizer = VectorizerOH(self.normalizer.all_letters)
-        self.model = model
+        if model:
+            self.model = model
+        elif model_name:
+            self.model = loadModel(model_name)
+        else:
+            print('Warning! No Model.')
         self.device = "cuda:0"
         self.mapper = MapperNone()
     
@@ -231,8 +247,8 @@ class Classifier:
         end = a if a else len(sentences)
         for i, sentence in enumerate(sentences[:end]):
             self._predict(sentence)
-            if i % 1000 == 0:
-                print(i, timeSince(start))
+            if (i+1) % 1000 == 0:
+                print(i+1, timeSince(start))
 
 class MapperNone:
     def __init__(self):
