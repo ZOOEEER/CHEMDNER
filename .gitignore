@@ -1,0 +1,10 @@
+
+*.docx
+*.xlsx
+*.xml
+*.pyc
+*.dtd
+*.key
+*.txt
+*.gz
+*.png
